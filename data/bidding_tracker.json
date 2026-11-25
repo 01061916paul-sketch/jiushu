@@ -1,0 +1,28 @@
+{
+  "updated_at": "2026-11-25T17:10:00",
+  "updated_by": "system@jiushu.tw",
+  "items": [
+    {
+      "id": "demo-115rre15",
+      "name": "115年度臺中市地方創生推動機制與發展策略規劃案",
+      "org": "臺中市政府研究發展考核委員會",
+      "cno": "115RRE15",
+      "budget": "1,200,000元",
+      "deadline": "2026-12-05",
+      "stage": "2. 撰寫企劃書",
+      "progress": 45,
+      "owner": "paul@jiushu.tw",
+      "note": "已確認無履約保證金門檻，台中在地案，先完成地方創生策略架構與紅隊一審。",
+      "url": "https://web.pcc.gov.tw/tps/atm/AtmAwardWithoutSso/QueryAtmAwardDetail?pkAtmMain=NzEzMjUyMTE=",
+      "updated_by": "paul@jiushu.tw",
+      "updated_at": "2026-11-25T17:10:00",
+      "history": [
+        {
+          "at": "2026-11-25T17:10:00",
+          "by": "paul@jiushu.tw",
+          "action": "建立示範追蹤案件（可自由編輯或刪除）"
+        }
+      ]
+    }
+  ]
+}

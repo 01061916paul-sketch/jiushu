@@ -1,0 +1,6 @@
+{
+  "allowed_emails": [
+    "paul@jiushu.tw"
+  ],
+  "note": "只有列於 allowed_emails 清單中的團隊成員 Email 才能查看標案雷達與共同編輯投標進度。"
+}
