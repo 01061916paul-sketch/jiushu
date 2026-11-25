@@ -175,8 +175,40 @@ def extract_detail_fields(detail_json):
     return info
 
 
+def pick_gemini_model(api_key: str) -> str:
+    """Dynamically pick the newest available Gemini Flash/Pro model supporting generateContent."""
+    list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={urllib.parse.quote(api_key)}"
+    req = urllib.request.Request(list_url, method="GET")
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    candidates = []
+    for m in data.get("models", []):
+        name = m.get("name", "")  # e.g. "models/gemini-2.5-flash"
+        methods = m.get("supportedGenerationMethods", [])
+        if "generateContent" not in methods:
+            continue
+        low = name.lower()
+        if "gemini" not in low:
+            continue
+        if any(bad in low for bad in ("embedding", "aqa", "imagen", "veo", "tts", "audio", "robotics", "computer-use")):
+            continue
+        score = 0
+        if "flash" in low:
+            score += 100
+        if "lite" in low:
+            score -= 10
+        if "exp" in low or "preview" in low:
+            score -= 5
+        candidates.append((score, name))
+    candidates.sort(reverse=True)
+    if not candidates:
+        raise RuntimeError("No generateContent Gemini model found for this API key")
+    print(f"Using Gemini model: {candidates[0][1]}", file=sys.stderr)
+    return candidates[0][1]
+
+
 def gemini_semantic_review(candidates: list[dict], api_key: str) -> dict:
-    """Use Gemini API (gemini-2.5-flash) to semantically re-classify A and top B candidates."""
+    """Use Gemini API to semantically re-classify A and top B candidates."""
     if not api_key or not candidates:
         return {}
 
@@ -198,9 +230,10 @@ def gemini_semantic_review(candidates: list[dict], api_key: str) -> dict:
         "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1},
     }).encode("utf-8")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key)}"
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
     try:
+        model_name = pick_gemini_model(api_key)
+        url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={urllib.parse.quote(api_key)}"
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
         with urllib.request.urlopen(req, timeout=60) as resp:
             res = json.loads(resp.read().decode("utf-8"))
         text = res["candidates"][0]["content"]["parts"][0]["text"]
