@@ -45,7 +45,9 @@ def score_priority(item: dict, is_b: bool = False) -> tuple:
     is_central = 1 if any(k in text for k in CENTRAL_KW) else 0
     is_planning = 1 if any(k in name for k in PURE_PLANNING_KW) else 0
     is_quasi_a = 1 if (is_b and any(k in name for k in HIGH_PROB_A_KW)) else 0
-    return (is_central, is_planning, is_quasi_a, -int(item.get("idx", 0)))
+    if is_b:
+        item["quasi_a"] = bool(is_quasi_a)
+    return (is_quasi_a, is_central, is_planning, -int(item.get("idx", 0)))
 
 
 def fetch_json(url: str, retries: int = 3):
@@ -156,6 +158,9 @@ def extract_detail_fields(detail_json):
     info["bid_bond"] = str(
         d.get("領投開標:是否須繳納押標金", d.get("領投開標:押標金", ""))
     ).strip()
+    info["qualification"] = str(
+        d.get("廠商資格摘要", d.get("投標廠商資格:基本資格", ""))
+    ).strip()
 
     # Accurately get total electronic tender fee (機關文件費 + 系統使用費 + 文件代收費)
     total_fee = str(d.get("領投開標:是否提供電子領標:總計", "")).strip()
@@ -248,7 +253,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch and filter today's active service tenders via PCC Open Data API")
     parser.add_argument("--date", default=datetime.date.today().strftime("%Y%m%d"), help="YYYYMMDD (default: today)")
     parser.add_argument("--out-dir", default="/Users/paul/Desktop/服務建議書/jiushu-site/data", help="Output data directory")
-    parser.add_argument("--max-details", type=int, default=80, help="Max A tenders to fetch full details for")
+    parser.add_argument("--max-details", type=int, default=500, help="Max A+B tenders to fetch full details for")
     args = parser.parse_args()
 
     date_str = args.date.replace("-", "")
@@ -363,11 +368,13 @@ def main():
             a_list, b_list = new_a, new_b
             print(f"Gemini AI review applied: A={len(a_list)}, B={len(b_list)}, C={len(c_list)}", file=sys.stderr)
 
-    # Fetch full details for ALL A-class tenders and enforce:
-    # 1. Not expired (截止投標 >= now)
-    # 2. No 履約保證金 (if 是 -> move to C 類)
+    # Fetch full details for ALL A-class AND B-class tenders (up to max_details)
+    # so every A and B card has budget, deadline, doc_fee, phone, and bond checks
     verified_a = []
-    for item in a_list[: max(args.max_details, len(a_list))]:
+    verified_b = []
+    combined_targets = a_list + b_list
+    for item in combined_targets[: max(args.max_details, len(a_list))]:
+        orig_grade = item["grade"]
         try:
             detail_url = f"{BASE_URL}/tender?unit_id={urllib.parse.quote(item['unit_id'])}&job_number={urllib.parse.quote(item['cno'])}"
             detail_json = fetch_json(detail_url)
@@ -380,7 +387,7 @@ def main():
                 item["grade"] = "C"
                 item["reason"] = f"已截止投標（{item.get('end_date', '')}）"
                 c_list.append(item)
-                time.sleep(0.5)
+                time.sleep(0.35)
                 continue
 
             # Check 履約保證金 & 押標金 hard rules
@@ -389,7 +396,7 @@ def main():
                 item["grade"] = "C"
                 item["reason"] = "使用者規則：須繳履約保證金"
                 c_list.append(item)
-                time.sleep(0.5)
+                time.sleep(0.35)
                 continue
 
             bb = item.get("bid_bond", "")
@@ -397,7 +404,7 @@ def main():
                 item["grade"] = "C"
                 item["reason"] = "使用者規則：須繳押標金"
                 c_list.append(item)
-                time.sleep(0.5)
+                time.sleep(0.35)
                 continue
 
             # Check 最低標 (單純價格戰)
@@ -406,17 +413,37 @@ def main():
                 item["grade"] = "C"
                 item["reason"] = "單純價格戰（最低標）"
                 c_list.append(item)
-                time.sleep(0.5)
+                time.sleep(0.35)
                 continue
 
-            verified_a.append(item)
-            time.sleep(0.55)
+            # Check 商業團體（公會）會員證明或特許事務所
+            qual = item.get("qualification", "")
+            if any(q in qual for q in ("同業公會", "公會會員", "技師事務所", "建築師事務所")):
+                item["grade"] = "C"
+                item["reason"] = "資格不符：需商業團體（公會）會員證明或特許事務所，九澍未加入"
+                c_list.append(item)
+                time.sleep(0.35)
+                continue
+
+            if orig_grade == "A":
+                verified_a.append(item)
+            else:
+                verified_b.append(item)
+            time.sleep(0.4)
         except Exception as e:
             item["detail_error"] = str(e)
-            verified_a.append(item)
+            if orig_grade == "A":
+                verified_a.append(item)
+            else:
+                verified_b.append(item)
+
+    if len(combined_targets) > max(args.max_details, len(a_list)):
+        for leftover in combined_targets[max(args.max_details, len(a_list)):]:
+            if leftover["grade"] == "B":
+                verified_b.append(leftover)
 
     a_list = sorted(verified_a, key=lambda x: score_priority(x, is_b=False), reverse=True)
-    b_list = sorted(b_list, key=lambda x: score_priority(x, is_b=True), reverse=True)
+    b_list = sorted(verified_b, key=lambda x: score_priority(x, is_b=True), reverse=True)
 
     classified_archive = {
         "date": iso_date,
