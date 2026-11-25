@@ -57,9 +57,9 @@ def fetch_json(url: str, retries: int = 3):
             with urllib.request.urlopen(req, timeout=20) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < retries:
+            if e.code in (429, 500, 502, 503, 504) and attempt < retries:
                 wait = 3.5 * (attempt + 1)
-                print(f"[429] Rate limited, sleeping {wait}s...", file=sys.stderr)
+                print(f"[{e.code}] Transient error, sleeping {wait}s...", file=sys.stderr)
                 time.sleep(wait)
                 continue
             raise
@@ -272,7 +272,14 @@ def main():
             old_f.unlink(missing_ok=True)
 
     print(f"=== Fetching active 勞務類 tenders for {iso_date} (ROC {roc_today}) ===", file=sys.stderr)
-    raw_records = fetch_all_by_date(date_str)
+    try:
+        raw_records = fetch_all_by_date(date_str)
+    except urllib.error.HTTPError as e:
+        print(f"API 尚無 {iso_date} 資料或暫時維護（HTTP {e.code}），保留現有資料不中斷。", file=sys.stderr)
+        return
+    if not raw_records:
+        print(f"API 目前尚無 {iso_date} 公告資料（可能為凌晨尚未更新），保留現有資料。", file=sys.stderr)
+        return
 
     # Strictly keep ONLY: (1) 勞務類 AND (2) active 招標公告 (exclude 決標/無法決標/公開閱覽/預告)
     service_records = []
