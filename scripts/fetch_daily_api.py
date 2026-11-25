@@ -15,6 +15,7 @@ fetch_daily_api.py - tender-pipeline API 主引擎 (pcc-api.openfun.app)
 import argparse
 import datetime
 import json
+import os
 import re
 import sys
 import time
@@ -174,6 +175,42 @@ def extract_detail_fields(detail_json):
     return info
 
 
+def gemini_semantic_review(candidates: list[dict], api_key: str) -> dict:
+    """Use Gemini API (gemini-2.5-flash) to semantically re-classify A and top B candidates."""
+    if not api_key or not candidates:
+        return {}
+
+    compact = [
+        {"cno": x["cno"], "org": x["org"], "name": x["name"], "cat": x.get("category", ""), "cur": x["grade"]}
+        for x in candidates
+    ]
+    prompt = (
+        "你是九澍有限公司（台中）的政府標案審查專家。請嚴格依以下規則，對每筆標案重新判定 grade（A / B / C）與一句話 reason：\n"
+        "【A 類（高潛力）】：九澍核心業務＝企劃、規劃、策展、展覽、活動企劃與執行、藝術節、音樂季、地方創生、文化行銷、非工程顧問研究。\n"
+        "【C 類（必須無情排除）】：醫學/醫療/長照/社工/性侵害、生態/濕地/碳匯/環工、地政/GIS圖資、青創/創業育成/就業輔導/電商基地、電子票務/網站建置/軟體開發/維運、教育推廣/課程/培力/觀摩參訪/表演、純印刷出版、工程建築設計監造、手冊/指引/調查評估。\n"
+        "【B 類（待確認）】：僅名稱含製作/拍攝/佈置且無法確定是否含核心企劃者。\n"
+        "請輸出 JSON 陣列，每筆格式：{\"cno\":\"...\",\"grade\":\"A|B|C\",\"reason\":\"...\"}。\n"
+        f"標案清單：\n{json.dumps(compact, ensure_ascii=False)}"
+    )
+
+    body = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1},
+    }).encode("utf-8")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key)}"
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            res = json.loads(resp.read().decode("utf-8"))
+        text = res["candidates"][0]["content"]["parts"][0]["text"]
+        parsed = json.loads(text)
+        return {str(item["cno"]): item for item in parsed if isinstance(item, dict) and "cno" in item}
+    except Exception as e:
+        print(f"[Gemini fallback] {e}", file=sys.stderr)
+        return {}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch and filter today's active service tenders via PCC Open Data API")
     parser.add_argument("--date", default=datetime.date.today().strftime("%Y%m%d"), help="YYYYMMDD (default: today)")
@@ -268,6 +305,30 @@ def main():
             b_list.append(entry)
         else:
             c_list.append(entry)
+
+    # Pre-sort B so top priority B candidates are included in Gemini semantic review
+    b_list = sorted(b_list, key=lambda x: score_priority(x, is_b=True), reverse=True)
+
+    # Optional Gemini AI semantic review (if GEMINI_API_KEY is set)
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if api_key:
+        review_pool = a_list + b_list[:120]
+        ai_decisions = gemini_semantic_review(review_pool, api_key)
+        if ai_decisions:
+            new_a, new_b = [], list(b_list[120:])
+            for item in review_pool:
+                dec = ai_decisions.get(item["cno"])
+                if dec and dec.get("grade") in ("A", "B", "C"):
+                    item["grade"] = dec["grade"]
+                    item["reason"] = f"AI｜{dec.get('reason', item['reason'])}"
+                if item["grade"] == "A":
+                    new_a.append(item)
+                elif item["grade"] == "B":
+                    new_b.append(item)
+                else:
+                    c_list.append(item)
+            a_list, b_list = new_a, new_b
+            print(f"Gemini AI review applied: A={len(a_list)}, B={len(b_list)}, C={len(c_list)}", file=sys.stderr)
 
     # Fetch full details for ALL A-class tenders and enforce:
     # 1. Not expired (截止投標 >= now)
