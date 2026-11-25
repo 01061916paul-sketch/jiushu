@@ -116,8 +116,16 @@ ol, ul { padding: 0; list-style: none; }
 .terrain-wrap { position: absolute; inset: 0; z-index: 1; will-change: transform; opacity: 0.55; }
 .terrain { position: absolute; inset: 0; width: 100%; height: 100%; }
 .ridge { position: absolute; left: 0; right: 0; height: 120vh; display: flex; flex-direction: column; pointer-events: none; will-change: transform; }
-.ridge .meadow { width: 100%; height: clamp(140px, 22vh, 240px); flex: none; display: block; }
+.ridge .meadow { width: 100%; height: clamp(180px, 28vh, 300px); flex: none; display: block; overflow: visible; }
 .ridge > i { flex: 1; background: currentColor; margin-top: -1px; }
+.tuft { transform-box: fill-box; transform-origin: 50% 100%; transition: transform 680ms var(--spring); will-change: transform; }
+.tuft-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: grassBreeze var(--dur, 5s) ease-in-out var(--del, 0s) infinite alternate; }
+@keyframes grassBreeze {
+  0% { transform: rotate(-2.2deg) skewX(-1deg); }
+  50% { transform: rotate(1.6deg) skewX(0.8deg); }
+  100% { transform: rotate(3.4deg) skewX(1.6deg); }
+}
+@media (prefers-reduced-motion: reduce) { .tuft-sway { animation: none; } }
 .ridge--1 { color: #BCC6A3; top: 56vh; z-index: 2; }
 .ridge--2 { color: #8E9E64; top: 64vh; z-index: 4; }
 .ridge--3 { color: #4A5C2E; top: 72vh; z-index: 6; }
@@ -198,6 +206,8 @@ ol, ul { padding: 0; list-style: none; }
 }
 .badge--A { background: var(--sc-accent); color: var(--sc-accent-ink); }
 .badge--B { background: var(--sage-1); color: var(--forest); }
+.badge--quasiA { background: #E9CE5B; color: #1B2016; }
+.card--quasiA { border-color: #C9AD3B; background: #F8F6EA; box-shadow: 0 8px 24px -14px rgba(155, 130, 30, 0.28); }
 .badge--C { background: color-mix(in oklab, var(--sc-ink) 10%, transparent); color: var(--sc-ink-soft); }
 .card__org { font-size: 0.84rem; color: var(--sc-ink-soft); font-weight: 500; }
 .card__title { font-size: 1.08rem; font-weight: 600; line-height: 1.45; color: var(--sc-ink); }
@@ -458,6 +468,105 @@ ol, ul { padding: 0; list-style: none; }
   requestAnimationFrame(frame);
   requestAnimationFrame(() => document.documentElement.classList.add('is-loaded'));
 
+  /* ---------------- Realistic Botanical Meadow Grass + Wind Sway ---------------- */
+  (function initMeadowGrass() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const ridgeConfigs = [
+      { sel: '.ridge--1 .meadow', baseY: [130, 65, 165, 95], density: 58, hScale: 0.65, highlight: '#D5DEC0', plume: '#DDE4C8' },
+      { sel: '.ridge--2 .meadow', baseY: [105, 160, 45, 120], density: 68, hScale: 0.80, highlight: '#A8B77F', plume: '#C7D3A6' },
+      { sel: '.ridge--3 .meadow', baseY: [135, 65, 160, 75], density: 78, hScale: 0.95, highlight: '#6D8247', plume: '#9FB174' },
+      { sel: '.ridge--4 .meadow', baseY: [115, 170, 55, 125], density: 92, hScale: 1.12, highlight: '#3E4F29', plume: '#C5D84A' }
+    ];
+    const allTufts = [];
+    const rand = (a, b) => a + Math.random() * (b - a);
+
+    // Cubic bezier Y helper matching M0,y0 C480,y1 960,y2 1440,y3
+    function hillY(pts, t) {
+      const u = 1 - t;
+      return u*u*u*pts[0] + 3*u*u*t*pts[1] + 3*u*t*t*pts[2] + t*t*t*pts[3];
+    }
+
+    ridgeConfigs.forEach((cfg, layerIdx) => {
+      const svg = $(cfg.sel);
+      if (!svg) return;
+      svg.setAttribute('viewBox', '0 0 1440 220');
+      const pts = cfg.baseY;
+      // Rebuild base hill path to match exact 220 viewBox
+      const hillPath = svg.querySelector('path');
+      if (hillPath) {
+        hillPath.setAttribute('d', `M0,${pts[0]} C480,${pts[1]} 960,${pts[2]} 1440,${pts[3]} L1440,220 L0,220 Z`);
+      }
+
+      const gLayer = document.createElementNS(NS, 'g');
+      for (let i = 0; i < cfg.density; i++) {
+        const t = (i + rand(0.1, 0.9)) / cfg.density;
+        const x = t * 1440;
+        const y = hillY(pts, t) + 12;
+
+        const gTuft = document.createElementNS(NS, 'g');
+        gTuft.setAttribute('class', 'tuft');
+        const gSway = document.createElementNS(NS, 'g');
+        gSway.setAttribute('class', 'tuft-sway');
+        gSway.style.setProperty('--dur', rand(3.6, 6.8).toFixed(2) + 's');
+        gSway.style.setProperty('--del', (-rand(0, 5)).toFixed(2) + 's');
+
+        const blades = Math.floor(rand(3, 6));
+        for (let b = 0; b < blades; b++) {
+          const h = rand(28, 72) * cfg.hScale;
+          const lean = rand(-18, 22);
+          const w = rand(2.4, 5.2);
+          const bx = x + rand(-8, 8);
+          const tipX = bx + lean;
+          const tipY = y - h;
+          const ctrlX = bx + lean * 0.35;
+          const ctrlY = y - h * 0.55;
+
+          const blade = document.createElementNS(NS, 'path');
+          blade.setAttribute('d', `M${(bx - w/2).toFixed(1)},${y.toFixed(1)} Q${ctrlX.toFixed(1)},${ctrlY.toFixed(1)} ${tipX.toFixed(1)},${tipY.toFixed(1)} Q${(ctrlX + w*0.45).toFixed(1)},${ctrlY.toFixed(1)} ${(bx + w/2).toFixed(1)},${y.toFixed(1)} Z`);
+          blade.setAttribute('fill', b % 3 === 0 ? cfg.highlight : 'currentColor');
+          if (b % 3 === 0) blade.setAttribute('opacity', '0.78');
+          gSway.appendChild(blade);
+
+          // Occasional realistic foxtail / reed seed head
+          if (b === 0 && Math.random() < 0.28) {
+            const plume = document.createElementNS(NS, 'ellipse');
+            plume.setAttribute('cx', tipX.toFixed(1));
+            plume.setAttribute('cy', (tipY + 3).toFixed(1));
+            plume.setAttribute('rx', (w * 0.72).toFixed(1));
+            plume.setAttribute('ry', rand(7, 13).toFixed(1));
+            plume.setAttribute('fill', cfg.plume);
+            plume.setAttribute('opacity', layerIdx === 3 ? '0.68' : '0.55');
+            plume.setAttribute('transform', `rotate(${(lean * 0.8).toFixed(1)} ${tipX.toFixed(1)} ${tipY.toFixed(1)})`);
+            gSway.appendChild(plume);
+          }
+        }
+        gTuft.appendChild(gSway);
+        gLayer.appendChild(gTuft);
+        allTufts.push({ el: gTuft, xNorm: t, layer: layerIdx, timer: null });
+      }
+      svg.insertBefore(gLayer, hillPath);
+    });
+
+    if (!reduce) {
+      let lastX = 0.5;
+      hero.addEventListener('pointermove', e => {
+        const rect = hero.getBoundingClientRect();
+        const nx = (e.clientX - rect.left) / rect.width;
+        const dir = nx >= lastX ? 1 : -1;
+        lastX = nx;
+        allTufts.forEach(item => {
+          const dist = Math.abs(item.xNorm - nx);
+          if (dist < 0.14) {
+            const strength = (1 - dist / 0.14) * (10 + item.layer * 3.5) * dir;
+            item.el.style.transform = `rotate(${strength.toFixed(1)}deg) skewX(${(strength * 0.45).toFixed(1)}deg)`;
+            clearTimeout(item.timer);
+            item.timer = setTimeout(() => { item.el.style.transform = ''; }, 520);
+          }
+        });
+      }, { passive: true });
+    }
+  })();
+
   /* ---------------- Simple Anti-Bot Gate (per-session) ---------------- */
   const PASSCODE = '0000';
   const SS_PASS = 'jiushu_passcode_ok';
@@ -565,6 +674,10 @@ ol, ul { padding: 0; list-style: none; }
 
     grid.innerHTML = list.map((item, i) => {
       const added = isInCart(item);
+      const isQuasiA = item.grade === 'B' && item.quasi_a;
+      const badgeCls = isQuasiA ? 'badge--quasiA' : `badge--${item.grade}`;
+      const badgeLabel = isQuasiA ? `B+ 準A高潛力｜${item.reason || ''}` : `${item.grade} 類｜${item.reason || ''}`;
+      const cardCls = isQuasiA ? 'card card--quasiA' : 'card';
       const leftBtn = item.grade === 'A'
         ? `<a class="btn btn--sm" href="${resolveNoticeUrl(item)}" target="_blank" rel="noopener">檢視公告 ↗</a>`
         : `<button class="btn btn--ghost btn--sm copy-cno" data-cno="${item.cno || ''}" type="button">複製案號</button>`;
@@ -574,9 +687,9 @@ ol, ul { padding: 0; list-style: none; }
         : '';
 
       return `
-      <article class="card">
+      <article class="${cardCls}">
         <div class="card__top">
-          <span class="badge badge--${item.grade}">${item.grade} 類｜${item.reason || ''}</span>
+          <span class="badge ${badgeCls}">${badgeLabel}</span>
           <span class="mono" style="font-size:0.75rem;color:var(--ink-mute);">${item.cno || ''}</span>
         </div>
         <div class="card__org">${item.org || ''}</div>
