@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>九澍團隊｜每日標案雷達與待標清單</title>
+<meta name="description" content="九澍有限公司每日 10:30 政府採購網勞務類標案自動篩選、待標名單購物車與 PDF 領標清單匯出。">
+<meta name="theme-color" content="#EDEEE7">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23232B1E'/><path d='M5 22c5-6 9-7 13-4s7 2 9-2' stroke='%23C5D84A' stroke-width='2.4' fill='none' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Serif+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="scrollcraft.css">
+<style>
+:root {
+  --sc-canvas:     #EDEEE7;
+  --sc-surface:    #F9F9F4;
+  --sc-ink:        #1B2016;
+  --sc-ink-soft:   #565D4F;
+  --sc-accent:     #C5D84A;
+  --sc-accent-ink: #1B2016;
+  --sc-font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --sc-font-text:    "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --sc-font-mono:    ui-monospace, "SF Mono", Menlo, monospace;
+  --serif: "Instrument Serif", Georgia, serif;
+  --song: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+
+  --ink-mute: #747A6B;
+  --forest:   #232B1E;
+  --forest-2: #2D3727;
+  --bone:     #EEF0E6;
+  --bone-soft:#ABB59D;
+  --sage-1:   #CBD3B1;
+  --sage-2:   #A6B381;
+  --sage-3:   #7F9058;
+  --spring: cubic-bezier(0.22, 1.2, 0.36, 1);
+  --r-card: 22px;
+}
+html { background: var(--sc-canvas); color-scheme: light; scroll-behavior: smooth; }
+body { letter-spacing: 0.01em; }
+h1, h2, h3, p, ol, ul, figure { margin: 0; }
+ol, ul { padding: 0; list-style: none; }
+.serif { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: 0; }
+.mono { font-family: var(--sc-font-mono); }
+
+/* ----------------------------------------------------------- top bar --- */
+.bar {
+  position: fixed; inset: 0 0 auto 0; z-index: 60;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sc-4);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--sc-gutter) 14px;
+  color: var(--sc-ink);
+  transition: background-color 280ms var(--sc-ease-out), color 280ms var(--sc-ease-out), box-shadow 280ms var(--sc-ease-out);
+}
+.bar.is-scrolled { background: color-mix(in oklab, var(--sc-canvas) 88%, transparent); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 1px 0 var(--sc-hairline); }
+.bar.is-dark { color: var(--bone); }
+.bar.is-dark.is-scrolled { background: color-mix(in oklab, var(--forest) 88%, transparent); box-shadow: 0 1px 0 color-mix(in oklab, var(--bone) 12%, transparent); }
+.bar__mark { display: flex; align-items: baseline; gap: 12px; text-decoration: none; font-weight: 700; font-size: 1.12rem; letter-spacing: 0.04em; white-space: nowrap; color: inherit; }
+.bar__mark small { font-weight: 400; font-size: 0.78rem; letter-spacing: 0.02em; opacity: 0.62; }
+.bar__nav { position: relative; display: flex; padding: 4px; border-radius: 999px; }
+.bar__nav a {
+  position: relative; z-index: 1; padding: 7px 16px; border-radius: 999px;
+  font-size: 0.875rem; text-decoration: none; white-space: nowrap; opacity: 0.72; color: inherit;
+  transition: opacity 160ms var(--sc-ease-out), color 280ms var(--sc-ease-out);
+}
+.bar__nav a:hover { opacity: 1; }
+.bar__nav a.is-active { opacity: 1; color: var(--sc-accent-ink); font-weight: 500; }
+.bar__pill {
+  position: absolute; inset: 0; z-index: 0; background: var(--sc-accent);
+  clip-path: inset(4px var(--r, 100%) 4px var(--l, 0) round 999px);
+  transition: clip-path 560ms var(--spring);
+}
+.bar__nav:not(.has-active) .bar__pill { clip-path: inset(50% var(--r, 100%) 50% var(--l, 0) round 999px); }
+.cart-pill {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 999px;
+  background: var(--sc-ink); color: var(--sc-accent); text-decoration: none; font-size: 0.84rem; font-weight: 600;
+  white-space: nowrap; transition: transform 160ms var(--spring);
+}
+.cart-pill:hover { transform: scale(1.04); }
+.bar.is-dark .cart-pill { background: var(--sc-accent); color: var(--sc-accent-ink); }
+
+/* ------------------------------------------------------------ buttons --- */
+.btn {
+  position: relative; display: inline-flex; align-items: center; gap: 10px;
+  padding: 9px 10px 9px 20px; border-radius: 999px; overflow: hidden; isolation: isolate;
+  background: var(--sc-ink); color: var(--sc-canvas); border: none; cursor: pointer;
+  font-family: inherit; font-weight: 500; font-size: 0.9rem; text-decoration: none; white-space: nowrap;
+  transition: transform 140ms var(--sc-ease-out), color 260ms var(--sc-ease-out);
+}
+.btn::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: var(--sc-accent); transform: translateX(-101%);
+  transition: transform 420ms var(--sc-ease-out);
+}
+.btn__ico {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--sc-accent); color: var(--sc-accent-ink);
+  transition: transform 420ms var(--spring), background-color 260ms var(--sc-ease-out), color 260ms var(--sc-ease-out);
+}
+.btn:hover { color: var(--sc-accent-ink); }
+.btn:hover::before { transform: none; }
+.btn:hover .btn__ico { transform: rotate(45deg); background: var(--sc-ink); color: var(--sc-accent); }
+.btn:active { transform: scale(0.97); }
+.btn--ghost {
+  background: transparent; color: var(--sc-ink); border: 1px solid color-mix(in oklab, var(--sc-ink) 22%, transparent);
+  padding: 8px 16px;
+}
+.btn--ghost::before { background: var(--sc-ink); }
+.btn--ghost:hover { color: var(--sc-canvas); border-color: var(--sc-ink); }
+.btn--sm { padding: 6px 14px; font-size: 0.82rem; border-radius: 999px; }
+.btn--added { background: var(--sage-3); color: #fff; }
+.btn--added::before { background: var(--forest); }
+.btn--added:hover { color: var(--sc-accent); }
+
+/* --------------------------------------------------------------- hero --- */
+.hero__stage { background: var(--sc-canvas); min-height: 88vh; position: relative; overflow: hidden; }
+.terrain-wrap { position: absolute; inset: 0; z-index: 1; will-change: transform; opacity: 0.55; }
+.terrain { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ridge { position: absolute; left: 0; right: 0; height: 120vh; display: flex; flex-direction: column; pointer-events: none; will-change: transform; }
+.ridge .meadow { width: 100%; height: clamp(140px, 22vh, 240px); flex: none; display: block; }
+.ridge > i { flex: 1; background: currentColor; margin-top: -1px; }
+.ridge--1 { color: #BCC6A3; top: 56vh; z-index: 2; }
+.ridge--2 { color: #8E9E64; top: 64vh; z-index: 4; }
+.ridge--3 { color: #4A5C2E; top: 72vh; z-index: 6; }
+.ridge--4 { color: var(--forest); top: 80vh; z-index: 8; }
+.mist { position: absolute; left: 0; right: 0; top: 68vh; height: 24vh; z-index: 5; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--sc-canvas) 62%, transparent) 55%, transparent); }
+
+.hero__copy { position: relative; z-index: 7; padding: clamp(7rem, 15vh, 9.5rem) var(--sc-gutter) 13rem; max-width: 66rem; }
+.hero h1 { font-weight: 400; font-size: clamp(2.4rem, 1.2rem + 4.2vw, 5.2rem); line-height: 1.12; letter-spacing: -0.01em; }
+.hero h1 .ln { display: block; overflow: hidden; padding-bottom: 0.08em; }
+.hero h1 .ln > span { display: inline-block; transform: translate3d(0, 108%, 0); transition: transform 1100ms var(--sc-ease-out); }
+.hero h1 .ln:nth-child(2) > span { transition-delay: 120ms; }
+.hero h1 .x { font-family: var(--serif); font-weight: 400; font-size: 0.9em; margin-inline: 0.12em; color: var(--sage-3); }
+.is-loaded .hero h1 .ln > span { transform: none; }
+.hero__lede { margin-top: var(--sc-5); font-size: var(--sc-t-lg); line-height: 1.65; color: var(--sc-ink-soft); max-width: 38em; }
+.hero__acts { margin-top: var(--sc-6); display: flex; align-items: center; gap: var(--sc-4); flex-wrap: wrap; }
+.hero__meta {
+  display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 999px;
+  background: color-mix(in oklab, var(--sc-surface) 85%, transparent);
+  border: 1px solid color-mix(in oklab, var(--sc-ink) 10%, transparent);
+  font: 500 0.8rem/1.4 var(--sc-font-mono); color: var(--sc-ink-soft);
+}
+
+/* ------------------------------------------------------------- ledger --- */
+.ledger { background: var(--forest); color: var(--bone); --sc-ink: var(--bone); --sc-ink-soft: var(--bone-soft); --sc-hairline: color-mix(in oklab, var(--bone) 14%, transparent); padding: clamp(3rem, 6vw, 5rem) var(--sc-gutter); position: relative; z-index: 9; }
+.ledger__lead { font-weight: 400; font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); line-height: 1.45; max-width: 28em; }
+.ledger__lead .soft { color: var(--bone-soft); }
+.stats-grid { margin-top: clamp(2rem, 4vw, 3.5rem); display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--sc-hairline); }
+.stat-cell { position: relative; padding: var(--sc-6) var(--sc-5) var(--sc-5) 0; }
+.stat-cell + .stat-cell { padding-left: var(--sc-5); border-left: 1px solid var(--sc-hairline); }
+.stat-cell::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 2px; background: var(--sc-accent); transform: scaleX(0); transform-origin: 0 50%; transition: transform 520ms var(--sc-ease-out); }
+.stat-cell:hover::before { transform: scaleX(1); }
+.stat-val { font-family: var(--song); font-weight: 600; font-size: clamp(2.1rem, 1.4rem + 2vw, 3.4rem); color: var(--sc-accent); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-lbl { margin-top: 8px; font-size: 0.95rem; color: var(--bone); }
+.stat-sub { margin-top: 4px; font-size: 0.8rem; color: var(--bone-soft); }
+
+/* ----------------------------------------------------------- sections --- */
+.sec { padding: clamp(4rem, 7vw, 6rem) var(--sc-gutter); background: var(--sc-canvas); }
+.sec--alt { background: var(--sc-surface); border-top: 1px solid color-mix(in oklab, var(--sc-ink) 8%, transparent); }
+.sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sc-5); flex-wrap: wrap; margin-bottom: var(--sc-6); }
+.sec-head h2 { font-weight: 400; font-size: clamp(1.9rem, 1.2rem + 2.4vw, 3.2rem); line-height: 1.15; }
+.sec-head h2 .serif { color: var(--ink-mute); margin-left: 8px; }
+.sec-head p { color: var(--sc-ink-soft); max-width: 36em; line-height: 1.6; }
+
+/* ----------------------------------------------------- filter toolbar --- */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-radius: var(--r-card); background: var(--sc-surface);
+  border: 1px solid color-mix(in oklab, var(--sc-ink) 10%, transparent);
+  margin-bottom: var(--sc-5);
+}
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.tab {
+  padding: 7px 16px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--sc-ink) 14%, transparent);
+  background: transparent; color: var(--sc-ink-soft); cursor: pointer; font-family: inherit; font-size: 0.86rem;
+  transition: all 200ms var(--sc-ease-out);
+}
+.tab.is-on { background: var(--sc-ink); color: var(--sc-accent); border-color: var(--sc-ink); font-weight: 500; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.inp, .sel {
+  padding: 9px 14px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--sc-ink) 16%, transparent);
+  background: var(--sc-canvas); color: var(--sc-ink); font-family: inherit; font-size: 0.88rem; outline: none;
+}
+.inp:focus, .sel:focus { border-color: var(--sage-3); background: #fff; }
+
+/* ------------------------------------------------------- tender cards --- */
+.tender-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; }
+.card {
+  background: var(--sc-surface); border: 1px solid color-mix(in oklab, var(--sc-ink) 10%, transparent);
+  border-radius: var(--r-card); padding: 22px; display: flex; flex-direction: column; gap: 12px;
+  transition: transform 280ms var(--spring), box-shadow 280ms var(--sc-ease-out);
+}
+.card:hover { transform: translateY(-3px); box-shadow: 0 14px 32px -12px color-mix(in oklab, var(--sc-ink) 12%, transparent); }
+.card__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px;
+  font: 600 0.75rem/1.4 var(--sc-font-mono); letter-spacing: 0.02em;
+}
+.badge--A { background: var(--sc-accent); color: var(--sc-accent-ink); }
+.badge--B { background: var(--sage-1); color: var(--forest); }
+.badge--C { background: color-mix(in oklab, var(--sc-ink) 10%, transparent); color: var(--sc-ink-soft); }
+.card__org { font-size: 0.84rem; color: var(--sc-ink-soft); font-weight: 500; }
+.card__title { font-size: 1.08rem; font-weight: 600; line-height: 1.45; color: var(--sc-ink); }
+.card__meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 0.82rem; color: var(--sc-ink-soft); padding-top: 8px; border-top: 1px dashed color-mix(in oklab, var(--sc-ink) 12%, transparent); }
+.card__meta span b { color: var(--sc-ink); font-weight: 500; }
+.card__acts { margin-top: auto; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+/* ----------------------------------------------------------- cart table --- */
+.cart-wrap { overflow-x: auto; border-radius: var(--r-card); border: 1px solid color-mix(in oklab, var(--sc-ink) 12%, transparent); background: var(--sc-canvas); }
+.cart-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
+.cart-table th, .cart-table td { padding: 14px 16px; border-bottom: 1px solid color-mix(in oklab, var(--sc-ink) 8%, transparent); vertical-align: middle; }
+.cart-table th { font-weight: 600; color: var(--sc-ink-soft); background: color-mix(in oklab, var(--sc-ink) 4%, transparent); font-size: 0.82rem; }
+.cart-table tr:last-child td { border-bottom: none; }
+.cart-url { font: 400 0.78rem/1.4 var(--sc-font-mono); color: var(--sage-4); word-break: break-all; }
+
+/* ----------------------------------------------------------- auth gate --- */
+.auth-gate {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px;
+  background: color-mix(in oklab, var(--forest) 92%, transparent);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.auth-gate.is-hidden { display: none; }
+.auth-box {
+  width: min(420px, 100%); background: var(--sc-surface); color: var(--sc-ink);
+  border-radius: var(--r-card); padding: 32px 28px; box-shadow: 0 24px 60px rgba(0,0,0,.35);
+}
+.auth-box h2 { font-weight: 500; font-size: 1.5rem; }
+.auth-box p { margin-top: 8px; font-size: 0.9rem; color: var(--sc-ink-soft); line-height: 1.6; }
+.auth-err { margin-top: 10px; font-size: 0.84rem; color: #9c2b2e; min-height: 1.2em; }
+
+.close { position: relative; background: var(--forest); color: var(--bone); padding: clamp(3.5rem, 6vw, 5rem) var(--sc-gutter); text-align: center; }
+.close h2 { font-weight: 300; font-size: clamp(1.7rem, 1.2rem + 2vw, 2.8rem); }
+.close p { margin-top: 10px; color: var(--bone-soft); font-size: 0.9rem; }
+
+/* ---------------------------------------------------------- print / PDF --- */
+.print-only-header { display: none; }
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  .bar, .hero__stage, .ledger, #daily, .close, .auth-gate, .no-print { display: none !important; }
+  #cart { padding: 0 !important; background: #fff !important; border: none !important; }
+  #cart .sec-head p { display: none; }
+  .print-only-header { display: block; margin-bottom: 16px; border-bottom: 2px solid #000; padding-bottom: 8px; }
+  .cart-wrap { border: 1px solid #333; border-radius: 0; background: #fff; }
+  .cart-table th { background: #f2f2f2 !important; color: #000 !important; }
+  .cart-table th, .cart-table td { border: 1px solid #ccc; padding: 8px 10px; font-size: 11px; }
+  .cart-url { color: #000 !important; font-size: 10px; }
+  .col-action { display: none !important; }
+}
+
+@media (max-width: 900px) {
+  .bar__nav { display: none; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .stat-cell + .stat-cell { border-left: none; padding-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="bar" id="bar">
+  <a class="bar__mark" href="index.html">九澍團隊 <small>每日標案雷達</small></a>
+  <nav class="bar__nav" id="nav" aria-label="頁面導覽">
+    <span class="bar__pill" aria-hidden="true"></span>
+    <a href="#hero">總覽</a>
+    <a href="#daily">每日精選標案</a>
+    <a href="#cart">待標名單</a>
+  </nav>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="cart-pill" id="lockBtn" type="button" style="background:transparent;color:inherit;border:1px solid currentColor;cursor:pointer;font-weight:500;">鎖定</button>
+    <a class="cart-pill" href="#cart">
+      待標名單 <span id="cartBadge">0</span>
+    </a>
+  </div>
+</header>
+
+<div class="auth-gate" id="authGate" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <form class="auth-box" id="authForm">
+    <span class="badge badge--A">九澍團隊公開標案匯整・防機器人驗證</span>
+    <h2 id="authTitle" style="margin-top:12px;">請輸入通關密碼</h2>
+    <p>為防止網路爬蟲自動掃描，請輸入團隊通關密碼即可進入瀏覽每日標案與匯出待標清單。</p>
+    <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="inp" id="gatePin" type="password" inputmode="numeric" required placeholder="請輸入通關密碼" style="flex:1;min-width:160px;">
+      <button class="btn" type="submit">進入系統 <span class="btn__ico">→</span></button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </form>
+</div>
+
+<section class="hero__stage" id="hero">
+  <div class="terrain-wrap" id="heroTerrainWrap" aria-hidden="true">
+    <svg class="terrain" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <g fill="none" stroke="#8E9E64" stroke-width="1" opacity="0.45">
+        <path d="M-80 240 C 260 120, 520 340, 880 200 C 1140 100, 1320 260, 1520 180"/>
+        <path d="M-80 320 C 280 200, 540 420, 900 280 C 1160 180, 1340 340, 1520 260"/>
+        <path d="M-80 400 C 300 280, 560 500, 920 360 C 1180 260, 1360 420, 1520 340"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="hero__copy" id="heroCopy">
+    <h1>
+      <span class="ln"><span>九澍標案雷達 <span class="x">&times;</span></span></span>
+      <span class="ln"><span>每日 <em class="serif">10:30</em> 勞務精選</span></span>
+    </h1>
+    <p class="hero__lede">
+      每日上午 10:30 自動擷取政府採購網勞務類標案，精選 A 類（附採購網公告直達連結）並完整呈現 B 類（一鍵複製案號）；看到合適標案即可點「＋ 加入待標名單」，於頁面底部一鍵輸出 PDF 領標清單。
+    </p>
+    <div class="hero__acts">
+      <a class="btn" href="#daily">查看今日精選 <span class="btn__ico">↗</span></a>
+      <a class="btn btn--ghost" href="#cart">查看待標名單 (<span id="heroCartCnt">0</span>)</a>
+      <span class="hero__meta" id="heroUpdated">資料載入中…</span>
+    </div>
+  </div>
+
+  <div class="mist" data-rate="6"></div>
+  <div class="ridge ridge--1" data-rate="8"><svg class="meadow" viewBox="0 0 1440 200" preserveAspectRatio="none"><path fill="currentColor" d="M0,120 C320,20 720,180 1440,80 L1440,200 L0,200 Z"/></svg><i></i></div>
+  <div class="ridge ridge--2" data-rate="14"><svg class="meadow" viewBox="0 0 1440 200" preserveAspectRatio="none"><path fill="currentColor" d="M0,90 C420,180 960,10 1440,110 L1440,200 L0,200 Z"/></svg><i></i></div>
+  <div class="ridge ridge--3" data-rate="20"><svg class="meadow" viewBox="0 0 1440 200" preserveAspectRatio="none"><path fill="currentColor" d="M0,130 C360,40 1020,170 1440,60 L1440,200 L0,200 Z"/></svg><i></i></div>
+  <div class="ridge ridge--4" data-rate="26"><svg class="meadow" viewBox="0 0 1440 200" preserveAspectRatio="none"><path fill="currentColor" d="M0,110 C480,190 920,30 1440,120 L1440,200 L0,200 Z"/></svg><i></i></div>
+</section>
+
+<section class="ledger" data-tone="dark">
+  <h2 class="ledger__lead">
+    只看符合九澍能力的勞務案，<span class="soft">選好直接加入待標名單輸出 PDF。</span>
+  </h2>
+  <div class="stats-grid">
+    <div class="stat-cell">
+      <div class="stat-val" id="statTotal">—</div>
+      <div class="stat-lbl">今日勞務類總件數</div>
+      <div class="stat-sub">非勞務完全不蒐集</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-val" id="statA">—</div>
+      <div class="stat-lbl">A 類高潛力推薦</div>
+      <div class="stat-sub">附採購網公告直達連結</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-val" id="statB">—</div>
+      <div class="stat-lbl">B 類待確認（全數展示）</div>
+      <div class="stat-sub">支援一鍵複製案號</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-val" id="statCart">0</div>
+      <div class="stat-lbl">目前待標名單</div>
+      <div class="stat-sub">可隨時匯出 PDF 清單</div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="daily">
+  <div class="sec-head">
+    <div>
+      <h2>每日精選標案 <span class="serif">Daily Radar</span></h2>
+      <p>A 類提供「檢視公告 ↗」直連政府電子採購網；B 類提供「複製案號」；兩類皆可一鍵「＋ 加入待標名單」。</p>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="tabs" role="tablist">
+      <button class="tab is-on" data-grade="A">A 類精選 (<span id="cntA">0</span>)</button>
+      <button class="tab" data-grade="B">B 類全部 (<span id="cntB">0</span>)</button>
+      <button class="tab" data-grade="C">查驗封存 C 類 (<span id="cntC">0</span>)</button>
+    </div>
+    <div class="controls">
+      <select class="sel" id="regionFilter">
+        <option value="all">全臺灣地區</option>
+        <option value="central">中部優先（中彰投苗雲）</option>
+        <option value="north">北部（北北基桃竹）</option>
+        <option value="south">南部（嘉南高屏）</option>
+        <option value="east">東部（宜花東）</option>
+      </select>
+      <input class="inp" id="kwFilter" type="search" placeholder="搜尋機關、標案名稱或案號…">
+    </div>
+  </div>
+
+  <div class="tender-grid" id="tenderGrid"></div>
+</section>
+
+<section class="sec sec--alt" id="cart">
+  <div class="print-only-header">
+    <h2 style="margin:0;font-size:18px;">九澍有限公司｜每日精選待標名單</h2>
+    <div id="printMeta" style="font-size:12px;color:#444;margin-top:4px;"></div>
+  </div>
+
+  <div class="sec-head">
+    <div>
+      <h2>待標名單 <span class="serif">Bidding Cart</span></h2>
+      <p>如同購物車般挑選今日要跟進的標案，確認案號、直達連結與領標金後，點擊右側即可輸出一份乾淨的 PDF 清單。</p>
+    </div>
+    <div class="no-print" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn--ghost" id="clearCartBtn" type="button">清空名單</button>
+      <button class="btn" id="exportPdfBtn" type="button">輸出待標名單 PDF <span class="btn__ico">↓</span></button>
+    </div>
+  </div>
+
+  <div class="cart-wrap">
+    <table class="cart-table">
+      <thead>
+        <tr>
+          <th style="width:48px;">#</th>
+          <th style="width:150px;">標案案號</th>
+          <th>機關與標案名稱</th>
+          <th>採購網公告連結</th>
+          <th style="width:120px;">領標金</th>
+          <th class="col-action" style="width:90px;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="cartBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="close" data-tone="dark">
+  <h2>九澍有限公司 <span class="serif">Jiushu Studio</span></h2>
+  <p>台中立足 ｜ 每日上午 10:30 自動更新 ｜ 資料來源：行政院公共工程委員會／政府電子採購網（僅蒐集勞務類標案）</p>
+</footer>
+
+<script>
+(function () {
+  const $ = (s, c = document) => c.querySelector(s);
+  const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------------- ScrollCraft Parallax & Nav Pill ---------------- */
+  const bar = $('#bar'), nav = $('#nav'), navLinks = $$('a', nav), navSecs = navLinks.map(a => $(a.getAttribute('href')));
+  const darkEls = $$('[data-tone="dark"]');
+  const hero = $('#hero'), heroCopy = $('#heroCopy'), heroWrap = $('#heroTerrainWrap');
+  const ridges = $$('.hero__stage .ridge, .hero__stage .mist').map(el => ({ el, rate: +el.dataset.rate }));
+  let active = -1, dirty = true;
+
+  addEventListener('scroll', () => { dirty = true; }, { passive: true });
+  function navSync() {
+    const vh = innerHeight; let idx = -1;
+    navSecs.forEach((s, i) => { if (!s) return; const r = s.getBoundingClientRect(); if (r.top < vh * 0.45 && r.bottom > vh * 0.25) idx = i; });
+    if (idx === active) return; active = idx;
+    navLinks.forEach((a, i) => a.classList.toggle('is-active', i === idx));
+    nav.classList.toggle('has-active', idx >= 0);
+    if (idx >= 0) {
+      const n = nav.getBoundingClientRect(), a = navLinks[idx].getBoundingClientRect();
+      nav.style.setProperty('--l', (a.left - n.left) + 'px');
+      nav.style.setProperty('--r', (n.right - a.right) + 'px');
+    }
+  }
+  function updateScroll() {
+    const vh = innerHeight, r = hero.getBoundingClientRect();
+    const hp = Math.max(0, Math.min(1, -r.top / Math.max(r.height - vh * 0.4, 1)));
+    if (!reduce) {
+      ridges.forEach(R => { R.el.style.transform = `translate3d(0,${(-R.rate * hp).toFixed(2)}vh,0)`; });
+      heroCopy.style.transform = `translate3d(0,${(-hp * 10).toFixed(2)}vh,0)`;
+      heroWrap.style.transform = `translate3d(0,${(-hp * 6).toFixed(2)}vh,0) scale(${(1 + hp * 0.04).toFixed(4)})`;
+    }
+    bar.classList.toggle('is-scrolled', scrollY > 24);
+    let dark = false;
+    for (const el of darkEls) { const b = el.getBoundingClientRect(); if (b.top <= 30 && b.bottom >= 30) { dark = true; break; } }
+    bar.classList.toggle('is-dark', dark);
+    navSync();
+  }
+  function frame() { if (dirty) { dirty = false; updateScroll(); } requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+  requestAnimationFrame(() => document.documentElement.classList.add('is-loaded'));
+
+  /* ---------------- Simple Anti-Bot Gate (per-session) ---------------- */
+  const PASSCODE = '0000';
+  const SS_PASS = 'jiushu_passcode_ok';
+  if (sessionStorage.getItem(SS_PASS) === '1') {
+    $('#authGate').classList.add('is-hidden');
+  }
+  $('#authForm').addEventListener('submit', e => {
+    e.preventDefault();
+    if ($('#gatePin').value.trim() === PASSCODE) {
+      sessionStorage.setItem(SS_PASS, '1');
+      $('#authGate').classList.add('is-hidden');
+      $('#authErr').textContent = '';
+      $('#gatePin').value = '';
+    } else {
+      $('#authErr').textContent = '密碼錯誤，請重新輸入';
+    }
+  });
+  $('#lockBtn').addEventListener('click', () => {
+    sessionStorage.removeItem(SS_PASS);
+    $('#authGate').classList.remove('is-hidden');
+    $('#gatePin').focus();
+  });
+
+  /* ---------------- Daily Tenders & Cart Logic ---------------- */
+  let dailyData = { date: '', updated_at: '', summary: { total: 0, A: 0, B: 0, C: 0 }, A: [], B: [], archive_ref: '' };
+  let archiveData = null;
+  let currentGrade = 'A';
+
+  const LS_CART = 'jiushu_bidding_cart_v1';
+  const LS_CART_DATE = 'jiushu_bidding_cart_date';
+  let cart = JSON.parse(localStorage.getItem(LS_CART) || '[]');
+
+  const REGION_MAP = {
+    central: ['臺中', '台中', '彰化', '南投', '苗栗', '雲林'],
+    north: ['臺北', '台北', '新北', '基隆', '桃園', '新竹'],
+    south: ['嘉義', '臺南', '台南', '高雄', '屏東'],
+    east: ['宜蘭', '花蓮', '臺東', '台東']
+  };
+
+  function matchRegion(item, reg) {
+    if (reg === 'all') return true;
+    const text = `${item.org || ''} ${item.address || ''} ${item.name || ''}`;
+    return (REGION_MAP[reg] || []).some(k => text.includes(k));
+  }
+
+  function resolveNoticeUrl(item) {
+    const raw = (item.pcc_url || '').trim();
+    if (raw.startsWith('https://web.pcc.gov.tw')) return raw;
+    return 'https://web.pcc.gov.tw/prkms/tender/common/basic/indexTenderBasic';
+  }
+
+  function isInCart(item) {
+    return cart.some(x => x.cno === item.cno && x.org === item.org);
+  }
+
+  function saveCart() {
+    localStorage.setItem(LS_CART, JSON.stringify(cart));
+    renderCart();
+    renderTenders();
+  }
+
+  async function loadDailyTenders() {
+    try {
+      const res = await fetch('data/daily_tenders.json?t=' + Date.now());
+      if (!res.ok) throw new Error('無法讀取 daily_tenders.json');
+      dailyData = await res.json();
+      // Auto-clear yesterday's cart when a new day's 10:30 data arrives
+      const prevDate = localStorage.getItem(LS_CART_DATE);
+      if (prevDate && dailyData.date && prevDate !== dailyData.date) {
+        cart = [];
+        localStorage.setItem(LS_CART, '[]');
+      }
+      if (dailyData.date) localStorage.setItem(LS_CART_DATE, dailyData.date);
+      renderCart();
+      $('#heroUpdated').textContent = `最後更新：${dailyData.date} (${(dailyData.updated_at || '').slice(11, 16)})`;
+      $('#statTotal').textContent = dailyData.summary.total ?? 0;
+      $('#statA').textContent = dailyData.summary.A ?? 0;
+      $('#statB').textContent = dailyData.summary.B ?? 0;
+      $('#cntA').textContent = dailyData.summary.A ?? 0;
+      $('#cntB').textContent = dailyData.summary.B ?? 0;
+      $('#cntC').textContent = dailyData.summary.C ?? 0;
+      renderTenders();
+    } catch (e) {
+      $('#heroUpdated').textContent = '請確認 data/daily_tenders.json 已生成';
+    }
+  }
+
+  async function ensureArchiveLoaded() {
+    if (archiveData || !dailyData.archive_ref) return;
+    const res = await fetch(dailyData.archive_ref + '?t=' + Date.now());
+    if (res.ok) archiveData = await res.json();
+  }
+
+  function renderTenders() {
+    const reg = $('#regionFilter').value;
+    const kw = $('#kwFilter').value.trim().toLowerCase();
+    let list = currentGrade === 'A' ? (dailyData.A || []) : currentGrade === 'B' ? (dailyData.B || []) : (archiveData ? (archiveData.C || []) : []);
+    list = list.filter(x => matchRegion(x, reg) && (!kw || `${x.org} ${x.name} ${x.cno}`.toLowerCase().includes(kw)));
+
+    const grid = $('#tenderGrid');
+    if (!list.length) {
+      grid.innerHTML = `<div class="card"><div class="card__title">目前條件無符合標案</div><p class="card__org">可嘗試切換地區或關鍵字。</p></div>`;
+      return;
+    }
+
+    grid.innerHTML = list.map((item, i) => {
+      const added = isInCart(item);
+      const leftBtn = item.grade === 'A'
+        ? `<a class="btn btn--sm" href="${resolveNoticeUrl(item)}" target="_blank" rel="noopener">檢視公告 ↗</a>`
+        : `<button class="btn btn--ghost btn--sm copy-cno" data-cno="${item.cno || ''}" type="button">複製案號</button>`;
+
+      const addBtn = item.grade !== 'C'
+        ? `<button class="btn btn--sm ${added ? 'btn--added' : 'btn--ghost'} toggle-cart" data-idx="${i}" type="button">${added ? '✓ 已在待標名單' : '＋ 加入待標名單'}</button>`
+        : '';
+
+      return `
+      <article class="card">
+        <div class="card__top">
+          <span class="badge badge--${item.grade}">${item.grade} 類｜${item.reason || ''}</span>
+          <span class="mono" style="font-size:0.75rem;color:var(--ink-mute);">${item.cno || ''}</span>
+        </div>
+        <div class="card__org">${item.org || ''}</div>
+        <h3 class="card__title">${item.name || ''}</h3>
+        <div class="card__meta">
+          <span>預算：<b>${item.budget || '詳公告'}</b></span>
+          <span>截止：<b>${item.end_date || '詳公告'}</b></span>
+          <span>領標金：<b>${item.doc_fee || '詳公告'}</b></span>
+          <span>電話：<b>${item.phone || '—'}</b></span>
+        </div>
+        <div class="card__acts">
+          ${leftBtn}
+          ${addBtn}
+        </div>
+      </article>
+      `;
+    }).join('');
+
+    $$('.copy-cno', grid).forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const cno = btn.dataset.cno || '';
+        try {
+          await navigator.clipboard.writeText(cno);
+          btn.textContent = '已複製案號 ✓';
+          setTimeout(() => { btn.textContent = '複製案號'; }, 1600);
+        } catch {
+          prompt('請手動複製案號：', cno);
+        }
+      });
+    });
+
+    $$('.toggle-cart', grid).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = list[+btn.dataset.idx];
+        if (!item) return;
+        const pos = cart.findIndex(x => x.cno === item.cno && x.org === item.org);
+        if (pos >= 0) {
+          cart.splice(pos, 1);
+        } else {
+          cart.push({
+            cno: item.cno || '',
+            org: item.org || '',
+            name: item.name || '',
+            url: resolveNoticeUrl(item),
+            doc_fee: item.doc_fee || '詳公告'
+          });
+        }
+        saveCart();
+      });
+    });
+  }
+
+  function renderCart() {
+    $('#cartBadge').textContent = cart.length;
+    $('#heroCartCnt').textContent = cart.length;
+    $('#statCart').textContent = cart.length;
+    const body = $('#cartBody');
+    if (!cart.length) {
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink-mute);padding:28px;">目前待標名單為空，請於上方標案卡片點擊「＋ 加入待標名單」。</td></tr>`;
+      return;
+    }
+    body.innerHTML = cart.map((it, idx) => `
+      <tr>
+        <td class="mono">${idx + 1}</td>
+        <td class="mono" style="font-weight:600;">${it.cno || '—'}</td>
+        <td>
+          <div style="font-weight:600;">${it.name || ''}</div>
+          <div style="font-size:0.8rem;color:var(--sc-ink-soft);">${it.org || ''}</div>
+        </td>
+        <td>
+          <a class="cart-url" href="${it.url}" target="_blank" rel="noopener">${it.url}</a>
+        </td>
+        <td>
+          <input class="inp fee-inp no-print" data-idx="${idx}" value="${it.doc_fee || '詳公告'}" style="width:96px;padding:5px 8px;font-size:0.82rem;">
+          <span class="print-fee" style="display:none;">${it.doc_fee || '詳公告'}</span>
+        </td>
+        <td class="col-action">
+          <button class="btn btn--ghost btn--sm rm-cart" data-idx="${idx}" type="button">移除</button>
+        </td>
+      </tr>
+    `).join('');
+
+    $$('.fee-inp', body).forEach(inp => {
+      inp.addEventListener('change', () => {
+        cart[+inp.dataset.idx].doc_fee = inp.value.trim() || '詳公告';
+        localStorage.setItem(LS_CART, JSON.stringify(cart));
+        renderCart();
+      });
+    });
+    $$('.rm-cart', body).forEach(btn => {
+      btn.addEventListener('click', () => {
+        cart.splice(+btn.dataset.idx, 1);
+        saveCart();
+      });
+    });
+  }
+
+  $('#clearCartBtn').addEventListener('click', () => {
+    if (!cart.length || !confirm('確定清空待標名單？')) return;
+    cart = [];
+    saveCart();
+  });
+
+  $('#exportPdfBtn').addEventListener('click', () => {
+    if (!cart.length) { alert('請先加入至少一筆標案到待標名單！'); return; }
+    $('#printMeta').textContent = `匯出日期：${new Date().toLocaleDateString('zh-TW')} ｜ 共 ${cart.length} 案`;
+    $$('.print-fee').forEach(el => { el.style.display = 'inline'; });
+    window.print();
+    setTimeout(() => { $$('.print-fee').forEach(el => { el.style.display = 'none'; }); }, 500);
+  });
+
+  $$('.tab').forEach(tab => {
+    tab.addEventListener('click', async () => {
+      $$('.tab').forEach(t => t.classList.remove('is-on'));
+      tab.classList.add('is-on');
+      currentGrade = tab.dataset.grade;
+      if (currentGrade === 'C') await ensureArchiveLoaded();
+      renderTenders();
+    });
+  });
+  $('#regionFilter').addEventListener('change', renderTenders);
+  $('#kwFilter').addEventListener('input', renderTenders);
+
+  renderCart();
+  loadDailyTenders();
+})();
+</script>
+</body>
+</html>
