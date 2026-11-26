@@ -2,8 +2,11 @@ name: Daily 10:30 Tender Radar Update
 
 on:
   schedule:
-    # 02:30 UTC = 10:30 Asia/Taipei (UTC+8)
-    - cron: '30 2 * * *'
+    # 台灣時間 (UTC+8)：10:17、10:43、11:11、11:36 避開整點與30分尖峰四重備援
+    - cron: '17 2 * * *'
+    - cron: '43 2 * * *'
+    - cron: '11 3 * * *'
+    - cron: '36 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,12 +28,11 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          TZ=Asia/Taipei python3 scripts/fetch_daily_api.py --out-dir data --max-details 100
+          TZ=Asia/Taipei python3 scripts/fetch_daily_api.py --out-dir data --max-details 500
 
       - name: Commit updated JSON data
         run: |
           git config user.name "jiushu-bot"
           git config user.email "bot@jiushu.tw"
           git add data/daily_tenders.json data/archive/
-          git diff --staged --quiet || git commit -m "chore: update daily tenders $(TZ=Asia/Taipei date +%F)"
-          git push
+          git diff --staged --quiet || (git commit -m "chore: update daily tenders $(TZ=Asia/Taipei date +%F)" && git pull --rebase origin main && git push)
