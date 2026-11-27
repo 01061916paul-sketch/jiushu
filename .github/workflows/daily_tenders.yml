@@ -1,12 +1,9 @@
-name: Daily 10:30 Tender Radar Update
+name: Daily 11:13 Tender Radar Update
 
 on:
   schedule:
-    # 台灣時間 (UTC+8)：10:17、10:43、11:11、11:36 避開整點與30分尖峰四重備援
-    - cron: '17 2 * * *'
-    - cron: '43 2 * * *'
-    - cron: '11 3 * * *'
-    - cron: '36 3 * * *'
+    # 台灣時間 (UTC+8) 每日 11:13
+    - cron: '13 3 * * *'
   workflow_dispatch:
 
 permissions:
